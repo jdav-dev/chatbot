@@ -3,8 +3,6 @@ defmodule Chatbot.Consumer do
 
   alias Nostrum.Api
   alias Nostrum.Cache.Me
-  alias Nostrum.Struct.Message
-  alias Nostrum.Struct.User
 
   require Logger
 
@@ -15,18 +13,18 @@ defmodule Chatbot.Consumer do
   end
 
   @impl Nostrum.Consumer
-  def handle_event(event) do
+  def handle_event({:MESSAGE_CREATE, message, _ws_state}) do
     me = Me.get()
 
-    case event do
-      {:MESSAGE_CREATE, %Message{channel_id: @channel_id, author: %User{id: author_id}} = message,
-       _ws_state}
-      when author_id != me.id ->
-        handle_message(message)
-
-      event ->
-        :ignore
+    if message.channel_id == @channel_id and message.author.id != me.id and message.content != "" do
+      handle_message(message)
+    else
+      :ignore
     end
+  end
+
+  def handle_event(_event) do
+    :ignore
   end
 
   defp handle_message(message) do
@@ -34,16 +32,44 @@ defmodule Chatbot.Consumer do
 
     case Chatbot.asking_for_image(message.content) do
       {:yes, image_prompt, filename} ->
+        Api.start_typing(message.channel_id)
         {:ok, image} = Chatbot.generate_image(image_prompt)
+
+        Api.start_typing(message.channel_id)
         Api.create_message(message.channel_id, file: %{name: filename, body: image})
 
       :no ->
-        {:ok, response} = Chatbot.chat(message.content)
+        me = Me.get()
+
+        messages =
+          for previous_message <-
+                Api.get_channel_messages!(message.channel_id, 99, {:before, message.id}),
+              previous_message.content != "",
+              reduce: [%{role: "user", content: content(message)}] do
+            acc ->
+              formatted_message =
+                if previous_message.author.id == me.id do
+                  %{role: "assistant", content: previous_message.content}
+                else
+                  %{role: "user", content: content(previous_message)}
+                end
+
+              [formatted_message | acc]
+          end
+
+        Api.start_typing(message.channel_id)
+        {:ok, response} = Chatbot.chat(messages)
+
+        Api.start_typing(message.channel_id)
         Api.create_message(message.channel_id, response)
     end
   rescue
     error ->
       Logger.error("handle message error: #{inspect(error)}")
       Api.create_message(message.channel_id, "No.")
+  end
+
+  defp content(message) do
+    "#{message.author.username} said #{message.content}"
   end
 end

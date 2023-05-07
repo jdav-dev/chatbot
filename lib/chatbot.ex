@@ -45,7 +45,7 @@ defmodule Chatbot do
     end
   end
 
-  def chat(prompt) do
+  def chat(messages) do
     with {:ok, %{choices: [choice]}} <-
            OpenAI.chat_completion(
              model: @openai_chat_model,
@@ -53,8 +53,8 @@ defmodule Chatbot do
                %{
                  role: "system",
                  content: "You are Elmo.  Answer as concisely as possible, as Elmo."
-               },
-               %{role: "user", content: prompt}
+               }
+               | messages
              ]
            ) do
       {:ok, choice["message"]["content"]}
