@@ -8,8 +8,7 @@ defmodule Chatbot.Application do
   @impl true
   def start(_type, _args) do
     children = [
-      # Starts a worker by calling: Chatbot.Worker.start_link(arg)
-      # {Chatbot.Worker, arg}
+      Chatbot.Consumer
     ]
 
     # See https://hexdocs.pm/elixir/Supervisor.html
