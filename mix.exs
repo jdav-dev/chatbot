@@ -22,6 +22,7 @@ defmodule Chatbot.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:jason, "~> 1.4"},
       {:nostrum, "~> 0.6"},
       {:openai, "~> 0.5"}
     ]

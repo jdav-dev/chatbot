@@ -3,74 +3,47 @@ defmodule Chatbot.Consumer do
 
   alias Nostrum.Api
   alias Nostrum.Cache.Me
+  alias Nostrum.Struct.Message
+  alias Nostrum.Struct.User
 
   require Logger
+
+  @channel_id 1_050_990_075_581_829_120
 
   def start_link do
     Consumer.start_link(__MODULE__)
   end
 
   @impl Nostrum.Consumer
-  def handle_event(
-        {:MESSAGE_CREATE,
-         %Nostrum.Struct.Message{
-           channel_id: 1_050_990_075_581_829_120,
-           content: "image me " <> prompt
-         } = message, _ws_state}
-      ) do
+  def handle_event(event) do
     me = Me.get()
 
-    with false <- me.id == message.author.id,
-         {:ok, %{data: [%{"b64_json" => b64_json}]}} <-
-           OpenAI.image_generations(
-             prompt: prompt,
-             size: "1024x1024",
-             response_format: "b64_json"
-           ),
-         {:ok, image} <- Base.decode64(b64_json) do
-      Api.create_message(message.channel_id, file: %{name: "image.png", body: image})
-    else
-      true ->
-        :ignore
+    case event do
+      {:MESSAGE_CREATE, %Message{channel_id: @channel_id, author: %User{id: author_id}} = message,
+       _ws_state}
+      when author_id != me.id ->
+        handle_message(message)
 
-      error ->
-        Logger.error("handle message error: #{inspect(error)}")
-        Api.create_message(message.channel_id, "No.")
+      event ->
+        :ignore
     end
   end
 
-  def handle_event(
-        {:MESSAGE_CREATE,
-         %Nostrum.Struct.Message{channel_id: 1_050_990_075_581_829_120} = message, _ws_state}
-      ) do
-    me = Me.get()
+  defp handle_message(message) do
+    Api.start_typing(message.channel_id)
 
-    with false <- me.id == message.author.id,
-         {:ok, %{choices: [choice]} = result} <-
-           OpenAI.chat_completion(
-             model: "gpt-3.5-turbo",
-             messages: [
-               %{
-                 role: "system",
-                 content: "You are Elmo.  Answer as concisely as possible, as Elmo."
-               },
-               %{role: "user", content: message.content}
-             ]
-           ) do
-      IO.inspect(result, label: :openai_result)
+    case Chatbot.asking_for_image(message.content) do
+      {:yes, image_prompt, filename} ->
+        {:ok, image} = Chatbot.generate_image(image_prompt)
+        Api.create_message(message.channel_id, file: %{name: filename, body: image})
 
-      Api.create_message(message.channel_id, choice["message"]["content"])
-    else
-      true ->
-        :ignore
-
-      error ->
-        Logger.error("handle message error: #{inspect(error)}")
-        Api.create_message(message.channel_id, "No.")
+      :no ->
+        {:ok, response} = Chatbot.chat(message.content)
+        Api.create_message(message.channel_id, response)
     end
-  end
-
-  def handle_event(_event) do
-    :noop
+  rescue
+    error ->
+      Logger.error("handle message error: #{inspect(error)}")
+      Api.create_message(message.channel_id, "No.")
   end
 end
