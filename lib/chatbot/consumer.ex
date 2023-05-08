@@ -7,8 +7,6 @@ defmodule Chatbot.Consumer do
 
   require Logger
 
-  @channel_id 1_050_990_075_581_829_120
-
   def start_link do
     Consumer.start_link(__MODULE__)
   end
@@ -17,15 +15,39 @@ defmodule Chatbot.Consumer do
   def handle_event({:MESSAGE_CREATE, message, _ws_state}) do
     me = Me.get()
 
-    if message.channel_id == @channel_id and message.author.id != me.id and message.content != "" do
+    with :not_my_message <- my_message(message, me),
+         :has_content <- has_content(message),
+         true <- mentioned?(message, me) or random_interest?() do
       handle_message(message)
     else
-      :ignore
+      reason ->
+        case reason do
+          false -> Logger.info("not_interested: #{message.id}")
+          reason -> Logger.info("#{reason}: #{message.id}")
+        end
+
+        :ignore
     end
   end
 
   def handle_event(_event) do
     :ignore
+  end
+
+  defp my_message(message, me) do
+    if message.author.id == me.id, do: :my_message, else: :not_my_message
+  end
+
+  defp has_content(message) do
+    if message.content != "", do: :has_content, else: :no_content
+  end
+
+  defp mentioned?(message, me) do
+    Enum.any?(message.mentions, &(&1.id == me.id))
+  end
+
+  defp random_interest? do
+    Enum.random(1..100) > Config.get(:percent_interest, 50)
   end
 
   defp handle_message(message) do
