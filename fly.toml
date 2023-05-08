@@ -1,0 +1,11 @@
+# fly.toml app configuration file generated for twilight-lake-2392 on 2023-05-07T21:43:10-04:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "twilight-lake-2392"
+primary_region = "iad"
+
+[mounts]
+source = "chatbot_data"
+destination = "/app/_build/prod/lib/chatbot/priv"
