@@ -98,6 +98,11 @@ defmodule Chatbot.Consumer do
   end
 
   defp content(message) do
-    "#{message.author.username} said #{message.content}"
+    content =
+      for mention <- message.mentions, reduce: message.content do
+        acc -> String.replace(acc, "<@#{mention.id}>", "@#{mention.username}")
+      end
+
+    "@#{message.author.username} said #{content}"
   end
 end
