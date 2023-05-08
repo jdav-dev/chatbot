@@ -1,6 +1,7 @@
 defmodule Chatbot.Consumer do
   use Nostrum.Consumer
 
+  alias Chatbot.Config
   alias Nostrum.Api
   alias Nostrum.Cache.Me
 
@@ -36,14 +37,19 @@ defmodule Chatbot.Consumer do
         {:ok, image} = Chatbot.generate_image(image_prompt)
 
         Api.start_typing(message.channel_id)
-        Api.create_message(message.channel_id, file: %{name: filename, body: image})
+
+        Api.create_message(message.channel_id,
+          content: image_prompt,
+          file: %{name: filename, body: image}
+        )
 
       :no ->
         me = Me.get()
+        limit = :messages_limit |> Config.get(99) |> max(0)
 
         messages =
           for previous_message <-
-                Api.get_channel_messages!(message.channel_id, 99, {:before, message.id}),
+                Api.get_channel_messages!(message.channel_id, limit, {:before, message.id}),
               previous_message.content != "",
               reduce: [%{role: "user", content: content(message)}] do
             acc ->

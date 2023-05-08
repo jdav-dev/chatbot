@@ -3,6 +3,8 @@ defmodule Chatbot do
   Documentation for `Chatbot`.
   """
 
+  alias Chatbot.Config
+
   @openai_chat_model "gpt-3.5-turbo"
 
   def asking_for_image(prompt) do
@@ -46,17 +48,11 @@ defmodule Chatbot do
   end
 
   def chat(messages) do
+    system_message = Config.get(:system_message, "You are a helpful assistant.")
+    messages = [%{role: "system", content: system_message} | messages]
+
     with {:ok, %{choices: [choice]}} <-
-           OpenAI.chat_completion(
-             model: @openai_chat_model,
-             messages: [
-               %{
-                 role: "system",
-                 content: "You are Elmo.  Answer as concisely as possible, as Elmo."
-               }
-               | messages
-             ]
-           ) do
+           OpenAI.chat_completion(model: @openai_chat_model, messages: messages) do
       {:ok, choice["message"]["content"]}
     end
   end
