@@ -34,6 +34,7 @@ defmodule Chatbot do
              model: @openai_chat_model,
              messages: [
                %{role: "system", content: system_message},
+               %{role: "user", content: system_message},
                %{role: "user", content: user_message}
              ]
            ) do
