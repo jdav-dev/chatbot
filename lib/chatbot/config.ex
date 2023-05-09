@@ -1,4 +1,7 @@
 defmodule Chatbot.Config do
+  @moduledoc """
+  Persistent key-value store for runtime config.
+  """
   use GenServer
 
   @table :chatbot_config
@@ -16,6 +19,7 @@ defmodule Chatbot.Config do
   def init(_init_arg) do
     with {:error, _reason} <- :ets.file2tab(@filename, verify: true),
          table <- :ets.new(@table, [:named_table, read_concurrency: true]),
+         :ok <- @filename |> Path.dirname() |> File.mkdir_p(),
          :ok <- save_to_disk(table) do
       {:ok, table}
     else

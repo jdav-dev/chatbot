@@ -7,7 +7,9 @@ defmodule Chatbot.MixProject do
       version: "0.1.0",
       elixir: "~> 1.14",
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+      dialyzer: [plt_add_apps: [:nostrum]],
+      preferred_cli_env: [credo: :test, dialyzer: :test, gradient: :test]
     ]
   end
 
@@ -22,8 +24,11 @@ defmodule Chatbot.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:credo, "~> 1.7", only: :test, runtime: false},
+      {:dialyxir, "~> 1.3", only: :test, runtime: false},
+      {:gradient, github: "esl/gradient", only: :test, runtime: false},
       {:jason, "~> 1.4"},
-      {:nostrum, "~> 0.6"},
+      {:nostrum, "~> 0.6", runtime: Mix.env() != :test},
       {:openai, "~> 0.5"}
     ]
   end

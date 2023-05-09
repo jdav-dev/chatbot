@@ -1,4 +1,8 @@
 defmodule Chatbot.Consumer do
+  @moduledoc """
+  Consumer of Discord events.
+  """
+
   use Nostrum.Consumer
 
   alias Chatbot.Config
@@ -20,12 +24,12 @@ defmodule Chatbot.Consumer do
          true <- mentioned?(message, me) or random_interest?() do
       handle_message(message)
     else
-      reason ->
-        case reason do
-          false -> Logger.info("not_interested: #{message.id}")
-          reason -> Logger.info("#{reason}: #{message.id}")
-        end
+      false ->
+        Logger.info("not_interested: #{message.id}")
+        :ignore
 
+      reason ->
+        Logger.info("#{reason}: #{message.id}")
         :ignore
     end
   end
