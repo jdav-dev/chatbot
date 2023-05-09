@@ -1,0 +1,62 @@
+name: Elixir CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build and test
+    runs-on: ubuntu-20.04
+
+    env:
+      MIX_ENV: test
+
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Elixir
+        uses: erlef/setup-beam@v1.14.0
+        with:
+          elixir-version: "1.14.4"
+          otp-version: "25.3.2"
+      - name: Cache Mix
+        uses: actions/cache@v3
+        with:
+          path: |
+            deps
+            _build
+          key: ${{ runner.os }}-mix-${{ hashFiles('**/.tool-versions', '**/mix.lock') }}-v2
+          restore-keys: ${{ runner.os }}-mix-
+      - name: Install mix dependencies
+        run: mix deps.get
+      - name: Check formatting
+        run: mix format --check-formatted
+      - name: Check warnings
+        run: mix compile --warnings-as-errors
+      - name: Run tests
+        run: mix test
+      - name: Run Credo
+        run: mix credo
+      - name: Run Dialyzer
+        run: mix dialyzer
+      - name: Run Gradient
+        run: mix gradient
+
+  deploy:
+    name: Deploy app
+    if: github.ref == 'refs/heads/main'
+    needs: [build]
+    runs-on: ubuntu-latest
+
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+    steps:
+      - uses: actions/checkout@v3
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+      - run: flyctl deploy --remote-only
